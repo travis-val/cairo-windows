@@ -62,7 +62,7 @@ fi
 
 # Build libpng and zlib
 cd libpng
-sed 's#4996</Disable#4996;5045</Disable#' projects/vstudio/zlib.props > zlib.props.fixed
+sed 's#4996</Disable#4996;5045;4061</Disable#' projects/vstudio/zlib.props > zlib.props.fixed
 mv zlib.props.fixed projects/vstudio/zlib.props
 if [ ! -d "projects\vstudio\Backup" ]; then
     # Upgrade solution if not already
