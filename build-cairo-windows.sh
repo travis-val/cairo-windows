@@ -12,12 +12,20 @@ ZLIB_VERSION=zlib-1.2.11
 FREETYPE_VERSION=freetype-2.10.2
 
 # Set variables according to command line argument
-if [ ${1:-x86} = x64 ]; then
+if [ ${1:-x86} = x64 ] || [ ${2:-x86} = x64 ]; then
     MSVC_PLATFORM_NAME=x64
     OUTPUT_PLATFORM_NAME=x64
 else
     MSVC_PLATFORM_NAME=Win32
     OUTPUT_PLATFORM_NAME=x86
+fi
+
+if [ ${1:-Release} = Debug ] || [ ${2:-Release} = Debug ]; then
+    CONFIG_LABEL=Debug
+    CONFIG=debug
+else
+    CONFIG_LABEL=Release
+    CONFIG=release
 fi
 
 # Make sure the MSVC linker appears first in the path
@@ -68,14 +76,14 @@ if [ ! -d "projects\vstudio\Backup" ]; then
     # Upgrade solution if not already
     devenv.com "projects\vstudio\vstudio.sln" -upgrade
 fi
-devenv.com "projects\vstudio\vstudio.sln" -build "Release Library|$MSVC_PLATFORM_NAME" -project libpng
+devenv.com "projects\vstudio\vstudio.sln" -build "$CONFIG_LABEL Library|$MSVC_PLATFORM_NAME" -project libpng
 cd ..
 if [ $MSVC_PLATFORM_NAME = x64 ]; then
-    cp "libpng/projects/vstudio/x64/Release Library/libpng16.lib" libpng/libpng.lib
-    cp "libpng/projects/vstudio/x64/Release Library/zlib.lib" zlib/zlib.lib
+    cp "libpng/projects/vstudio/x64/$CONFIG_LABEL Library/libpng16.lib" libpng/libpng.lib
+    cp "libpng/projects/vstudio/x64/$CONFIG_LABEL Library/zlib.lib" zlib/zlib.lib
 else
-    cp "libpng/projects/vstudio/Release Library/libpng16.lib" libpng/libpng.lib
-    cp "libpng/projects/vstudio/Release Library/zlib.lib" zlib/zlib.lib
+    cp "libpng/projects/vstudio/$CONFIG_LABEL Library/libpng16.lib" libpng/libpng.lib
+    cp "libpng/projects/vstudio/$CONFIG_LABEL Library/zlib.lib" zlib/zlib.lib
 fi
 
 # Build pixman
@@ -84,9 +92,9 @@ sed s/-MD/-MT/ Makefile.win32.common > Makefile.win32.common.fixed
 mv Makefile.win32.common.fixed Makefile.win32.common
 if [ $MSVC_PLATFORM_NAME = x64 ]; then
     # pass -B for switching between x86/x64
-    make pixman -B -f Makefile.win32 "CFG=release" "MMX=off"
+    make pixman -B -f Makefile.win32 "CFG=$CONFIG" "MMX=off"
 else
-    make pixman -B -f Makefile.win32 "CFG=release"
+    make pixman -B -f Makefile.win32 "CFG=$CONFIG"
 fi
 cd ..
 
@@ -97,8 +105,8 @@ if [ $USE_FREETYPE -ne 0 ]; then
         # Upgrade solution if not already
         devenv.com "builds/windows/vc2010/freetype.sln" -upgrade
     fi
-    devenv.com "builds/windows/vc2010/freetype.sln" -build "Release Static|$MSVC_PLATFORM_NAME"
-    cp "`ls -1d "objs/$MSVC_PLATFORM_NAME/Release Static/freetype.lib"`" .
+    devenv.com "builds/windows/vc2010/freetype.sln" -build "$CONFIG_LABEL Static|$MSVC_PLATFORM_NAME"
+    cp "`ls -1d "objs/$MSVC_PLATFORM_NAME/$CONFIG_LABEL Static/freetype.lib"`" .
     cd ..
 fi
 
@@ -115,13 +123,13 @@ mv Makefile.win32.common.fixed build/Makefile.win32.common
 sed "s/CAIRO_HAS_FT_FONT=./CAIRO_HAS_FT_FONT=$USE_FREETYPE/" build/Makefile.win32.features > Makefile.win32.features.fixed
 mv Makefile.win32.features.fixed build/Makefile.win32.features
 # pass -B for switching between x86/x64
-make -B -f Makefile.win32 cairo "CFG=release"
+make -B -f Makefile.win32 cairo "CFG=$CONFIG"
 cd ..
 
 # Package headers with DLL
-OUTPUT_FOLDER=output/${CAIRO_VERSION/cairo-/cairo-windows-}
+OUTPUT_FOLDER=output/${CAIRO_VERSION/cairo-/cairo-windows-}/${CONFIG_LABEL}
 mkdir -p $OUTPUT_FOLDER/include
-for file in cairo/cairo-version.h \
+for file in cairo/src/cairo-version.h \
             cairo/src/cairo-features.h \
             cairo/src/cairo.h \
             cairo/src/cairo-deprecated.h \
@@ -136,8 +144,9 @@ if [ $USE_FREETYPE -ne 0 ]; then
     cp cairo/src/cairo-ft.h $OUTPUT_FOLDER/include
 fi
 mkdir -p $OUTPUT_FOLDER/lib/$OUTPUT_PLATFORM_NAME
-cp cairo/src/release/cairo.lib $OUTPUT_FOLDER/lib/$OUTPUT_PLATFORM_NAME
-cp cairo/src/release/cairo.dll $OUTPUT_FOLDER/lib/$OUTPUT_PLATFORM_NAME
+cp cairo/src/$CONFIG_LABEL/cairo.lib $OUTPUT_FOLDER/lib/$OUTPUT_PLATFORM_NAME
+mkdir -p $OUTPUT_FOLDER/bin/$OUTPUT_PLATFORM_NAME
+cp cairo/src/$CONFIG_LABEL/cairo.dll $OUTPUT_FOLDER/bin/$OUTPUT_PLATFORM_NAME
 cp cairo/COPYING* $OUTPUT_FOLDER
 
 trap - EXIT
